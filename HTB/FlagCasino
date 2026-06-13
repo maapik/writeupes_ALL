@@ -1,0 +1,82 @@
+РЕШЕНИЕ:
+1: при запуске программы нам предлагают ввести данные.
+
+
+└─$ ./casino
+[ ** WELCOME TO ROBO CASINO **]
+     ,     ,
+    (\____/)
+     (_oo_)
+       (O)
+     __||__    \)
+  []/______\[] /
+  / \______/ \/
+ /    /__\
+(\   /____\
+---------------------
+[*** PLEASE PLACE YOUR BETS ***]
+> 11
+[ * INCORRECT * ]
+[ *** ACTIVATING SECURITY SYSTEM - PLEASE VACATE *** ]
+
+2: Анализ(ida)
+
+int __fastcall main(int argc, const char **argv, const char **envp)
+{
+  char v4; // [rsp+Bh] [rbp-5h] BYREF
+  unsigned int i; // [rsp+Ch] [rbp-4h]
+
+  puts("[ ** WELCOME TO ROBO CASINO **]");
+  puts(
+    "     ,     ,\n"
+    "    (\\____/)\n"
+    "     (_oo_)\n"
+    "       (O)\n"
+    "     __||__    \\)\n"
+    "  []/______\\[] /\n"
+    "  / \\______/ \\/\n"
+    " /    /__\\\n"
+    "(\\   /____\\\n"
+    "---------------------");
+  puts("[*** PLEASE PLACE YOUR BETS ***]");
+  for ( i = 0; i <= 0x1D; ++i )
+  {
+    printf("> ");
+    if ( (unsigned int)__isoc99_scanf(" %c", &v4) != 1 )
+      exit(-1);
+    srand(v4);
+    if ( rand() != check[i] )
+    {
+      puts("[ * INCORRECT * ]");
+      puts("[ *** ACTIVATING SECURITY SYSTEM - PLEASE VACATE *** ]");
+      exit(-2);
+    }
+    puts("[ * CORRECT *]");
+  }
+  puts("[ ** HOUSE BALANCE $0 - PLEASE COME BACK LATER ** ]");
+  return 0;
+}
+
+
+по коду видно что После вывода баннера исполняемый файл выполняет итерации от 0 до 0x1D. 
+На каждом шаге вызывается функция srand() для введенного символа. Затем вызывается функция rand() и проверяется результат на соответствие целому числу из функции check. 
+Если результат совпадает, выводится сообщение об успехе, и процесс продолжается. Если все записи в 0x1D верны, программа успешно завершает работу.
+
+
+3: Скрипт
+Функция `rand()` — это предсказуемый генератор случайных чисел, который вызывает `srand(x)`, и результат всегда будет одинаковым. 
+Сначала напишем скрипт для определения соответствия. Используя библиотеку `ctypes`, мы можем вызывать функции C из Python.
+import ctypes
+libc = ctypes.CDLL('libc.so.6')
+mapping = {}
+for i in range(255):
+ libc.srand(i)
+ mapping[libc.rand()] = chr(i)
+далее используя pwntools
+from pwn import *
+flag = ""
+e = ELF("./casino", checksec=False)
+for j in range(29):
+ val = e.u32(e.sym["check"] + j * 4)
+ flag += mapping[val]
+print(flag)
